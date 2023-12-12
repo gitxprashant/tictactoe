@@ -2,10 +2,11 @@ from flask import Flask, render_template_string, request
 from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
+
 
 # Game state variables
-players = [None, None]
+players = []
 current_player = 0
 board = [""] * 9
 game_in_progress = True
@@ -134,17 +135,28 @@ def index():
 
 @socketio.on('connect')
 def handle_connect():
-    global current_player, board
-    player_number = len([p for p in players if p is not None]) + 1
+    global current_player, board, game_in_progress
+    players.append(request.sid)
 
-    if player_number <= 2:
-        players[player_number - 1] = request.sid
+    emit('player_number', {'playerNumber': len(players)})
 
-    emit('player_number', {'playerNumber': player_number})
-
-    if player_number == 2:
+    if len(players) == 2:
+        game_in_progress = True
+        current_player = 0
+        board = [""] * 9
         emit('start_game', {'board': board, 'currentPlayer': current_player}, room=players[0])
         emit('start_game', {'board': board, 'currentPlayer': current_player}, room=players[1])
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    global players, current_player, game_in_progress
+    players.remove(request.sid)
+
+    if len(players) == 0:
+        # Reset the game state when the last player disconnects
+        game_in_progress = False
+        current_player = 0
+        board = [""]
 
 @socketio.on('make_move')
 def handle_make_move(data):
