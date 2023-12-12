@@ -1,0 +1,5 @@
+services:
+- name: tictactoe
+  type: web
+  buildCommand: pip install -r requirements.txt
+  startCommand: gunicorn -b :$PORT tictactoe:app
